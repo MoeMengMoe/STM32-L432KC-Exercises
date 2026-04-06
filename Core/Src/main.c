@@ -21,11 +21,11 @@
 #include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
-#include<stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include<stdio.h>
+#include"driver_ssd1306_basic.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -119,8 +119,43 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
+  // printf("Scanning I2C bus...\r\n");
+  // for (uint16_t i = 1; i < 128; i++) {
+  //   if (HAL_I2C_IsDeviceReady(&hi2c3, (i << 1), 3, 5) == HAL_OK) {
+  //     printf("Device found at 0x%02X\r\n", i);
+  //   }
+  // }
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
   HAL_UART_Receive_IT(&huart1, message, 2);
+  uint8_t res;
+
+  printf("Starting SSD1306 System...\r\n");
+  // 1. 初始化屏幕
+  // 参数1：接口类型 (IIC)
+  // 参数2：地址 (SA0接地选 0x3C，即 SSD1306_ADDR_SA0_0)
+  res = ssd1306_basic_init(SSD1306_INTERFACE_IIC, SSD1306_ADDR_SA0_0);
+
+  if (res != 0)
+  {
+    // 如果初始化失败，串口会打印具体原因
+    printf("ssd1306: init failed, code: %d\r\n", res);
+  }
+  else
+  {
+    printf("ssd1306: init success!\r\n");
+
+    // 2. 清屏
+    ssd1306_basic_clear();
+
+    // 3. 显示文本
+    // 参数：X坐标, Y坐标, 字符串, 字符串长度, 颜色(1亮0灭), 字体大小
+    ssd1306_basic_string(0, 0, "STM32L432KC", 11, 1, SSD1306_FONT_16);
+    ssd1306_basic_string(0, 20, "LibDriver OK", 12, 1, SSD1306_FONT_12);
+
+    // 4. 画个矩形（测试图形功能）
+    // 参数：左上X, 左上Y, 右下X, 右下Y, 颜色
+    ssd1306_basic_rect(0, 40, 127, 60, 1);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */

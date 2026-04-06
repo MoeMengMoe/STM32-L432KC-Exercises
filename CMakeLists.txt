@@ -88,15 +88,15 @@ if(NOT CMAKE_SIZE)
     set(CMAKE_SIZE arm-none-eabi-size)
 endif()
 
-add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_SIZE} --format=berkeley $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
-        COMMENT "Showing memory usage:"
+# 1. 使用绝对路径包含头文件
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/interface"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/example"
 )
 
-target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
-        Drivers/Middlewares/libdriver_ssd1306/src
-        Drivers/Middlewares/libdriver_ssd1306/interface
-        Drivers/Middlewares/libdriver_ssd1306/example
-)
-file(GLOB_RECURSE LIBDRIVER_SRCS "Drivers/Middlewares/libdriver_ssd1306/*.c")
+# 2. 递归扫描源文件（确保路径加引号，防止空格报错）
+file(GLOB_RECURSE LIBDRIVER_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
+
+# 3. 将源文件添加到目标
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${LIBDRIVER_SRCS})

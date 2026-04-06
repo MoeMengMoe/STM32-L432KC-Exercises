@@ -1,4 +1,5 @@
 ﻿.idea
-Drivers/STM32L4xx_HAL_Driver
 cmake
-Drivers
+
+Drivers/STM32L4xx_HAL_Driver
+Drivers/CMSIS
