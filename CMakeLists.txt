@@ -100,3 +100,12 @@ file(GLOB_RECURSE LIBDRIVER_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middleware
 
 # 3. 将源文件添加到目标
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${LIBDRIVER_SRCS})
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal"
+)
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833.c"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833_motor.c"
+)
