@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "i2c.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -26,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include<stdio.h>
 #include"driver_ssd1306_basic.h"
+#include"drv8833.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,7 +37,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define COUNT_MID 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -118,6 +120,8 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_I2C3_Init();
+  MX_TIM1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   // printf("Scanning I2C bus...\r\n");
   // for (uint16_t i = 1; i < 128; i++) {
@@ -155,14 +159,50 @@ int main(void)
     // 4. 画个矩形（测试图形功能）
     // 参数：左上X, 左上Y, 右下X, 右下Y, 颜色
     ssd1306_basic_rect(0, 40, 127, 60, 1);
+    HAL_Delay(1000);
+    ssd1306_basic_clear();
   }
+
+  DRV8833_Init();
+
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+
+  int count =0;
+  int speed=0;
+  __HAL_TIM_SET_COUNTER(&htim2,COUNT_MID);
+
+
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  count=__HAL_TIM_GetCounter(&htim2);
+    if (count>60000)
+    {
+      count=0;
+      __HAL_TIM_SetCounter(&htim2, 0);
+    }
+    if (count>COUNT_MID*2)
+    {
+      count=COUNT_MID*2;
+      __HAL_TIM_SET_COUNTER(&htim2,count);
+    }
 
+    if (count<COUNT_MID)
+    {
+      speed=(COUNT_MID-count)*100/COUNT_MID;
+      DRV8833_Backward(speed);
+
+    }else if (count>COUNT_MID)
+    {
+      speed=(count-COUNT_MID)*100/COUNT_MID;
+      DRV8833_Forward(speed);
+    }
+    HAL_Delay(100);
 
 
     /* USER CODE END WHILE */
