@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "i2c.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -52,6 +53,24 @@ unsigned char message[2] ;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  if (GPIO_Pin == KEY_Pin)
+  {
+    HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin);
+  }
+  if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
+  {
+    if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)
+    {
+      HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
+    }
+    else
+    {
+      HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+    }
+  }
+}
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   HAL_UART_Transmit_IT(&huart1, (uint8_t*)message, 2);
@@ -80,6 +99,19 @@ int _write(int file, char *ptr, int len)
     return 0;
   }
 }
+int _read(int file, char *ptr, int len)
+{
+  HAL_StatusTypeDef status = HAL_UART_Receive(&huart1, (uint8_t *)ptr, 1, HAL_MAX_DELAY);
+
+  if (status == HAL_OK) {
+    HAL_UART_Transmit(&huart1, (uint8_t *)ptr, 1, HAL_MAX_DELAY); // 回显
+    return 1;
+  } else {
+    return -1;
+  }
+}
+
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,13 +150,9 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_I2C3_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-  // printf("Scanning I2C bus...\r\n");
-  // for (uint16_t i = 1; i < 128; i++) {
-  //   if (HAL_I2C_IsDeviceReady(&hi2c3, (i << 1), 3, 5) == HAL_OK) {
-  //     printf("Device found at 0x%02X\r\n", i);
-  //   }
-  // }
+
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
   HAL_UART_Receive_IT(&huart1, message, 2);
   uint8_t res;
@@ -155,6 +183,7 @@ int main(void)
     // 4. 画个矩形（测试图形功能）
     // 参数：左上X, 左上Y, 右下X, 右下Y, 颜色
     ssd1306_basic_rect(0, 40, 127, 60, 1);
+    HAL_Delay(1000);
   }
   /* USER CODE END 2 */
 
@@ -162,6 +191,15 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
+    {
+      printf("0\r\n");
+    }
+    else
+    {
+      printf("1\r\n");
+    }
+    HAL_Delay(200);
 
 
 
@@ -196,8 +234,10 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE
+                              |RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
