@@ -11,7 +11,7 @@ void RTC_DATA_GET(RTC_TIME_DATA* data)
     RTC_DateTypeDef sDate = {0};
 
     HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);//重要规则： HAL_RTC_GetDate() 和 HAL_RTC_GetTime() 必须一起调用，且先 Date 后Time，否则时间值会被锁定不更新（影子寄存器机制）。
 
     data->year = sDate.Year+2000;//we use the year num after 2000
     data->month=sDate.Month;
@@ -47,7 +47,7 @@ HAL_StatusTypeDef RTC_DATA_SET(uint16_t year, uint8_t month, uint8_t day, uint8_
 }
 
 
-HAL_StatusTypeDef RTC_DATA_SET(RTC_TIME_DATA* data)
+HAL_StatusTypeDef RTC_DATA_SET_BY_STRUCT(RTC_TIME_DATA* data)
 {
     RTC_TimeTypeDef sTime={0};
     RTC_DateTypeDef sDate={0};
@@ -76,5 +76,5 @@ HAL_StatusTypeDef RTC_DATA_SET_BY_STRING(char* str)
 {
     RTC_TIME_DATA data;
     sscanf(str, "%hu-%hhu-%hhu %hhu:%hhu:%hhu", &data.year, &data.month, &data.day, &data.hour, &data.minute, &data.second);
-    return RTC_DATA_SET(&data);
+    return RTC_DATA_SET_BY_STRUCT(&data);
 }

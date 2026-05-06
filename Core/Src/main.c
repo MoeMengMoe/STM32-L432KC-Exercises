@@ -18,8 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "driver_ssd1306.h"
 #include "i2c.h"
 #include "rtc.h"
+#include "stm32l4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -144,13 +146,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
-  HAL_UART_Receive_IT(&huart1, message, 2);
+  HAL_UART_Receive_IT(&huart1, message, 20);
   uint8_t res;
 
   printf("Starting SSD1306 System...\r\n");
-  // 1. 初始化屏幕
-  // 参数1：接口类型 (IIC)
-  // 参数2：地址 (SA0接地选 0x3C，即 SSD1306_ADDR_SA0_0)
+
   res = ssd1306_basic_init(SSD1306_INTERFACE_IIC, SSD1306_ADDR_SA0_0);
 
   if (res != 0)
@@ -162,17 +162,13 @@ int main(void)
   {
     printf("ssd1306: init success!\r\n");
 
-    // 2. 清屏
     ssd1306_basic_clear();
 
-    // 3. 显示文本
-    // 参数：X坐标, Y坐标, 字符串, 字符串长度, 颜色(1亮0灭), 字体大小
     ssd1306_basic_string(0, 0, "STM32L432KC", 11, 1, SSD1306_FONT_16);
     ssd1306_basic_string(0, 20, "LibDriver OK", 12, 1, SSD1306_FONT_12);
 
-    // 4. 画个矩形（测试图形功能）
-    // 参数：左上X, 左上Y, 右下X, 右下Y, 颜色
     ssd1306_basic_rect(0, 40, 127, 60, 1);
+    ssd1306_basic_clear();
     HAL_Delay(1000);
   }
   /* USER CODE END 2 */
@@ -181,15 +177,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
-    {
-      printf("0\r\n");
-    }
-    else
-    {
-      printf("1\r\n");
-    }
-    HAL_Delay(200);
+      RTC_TIME_DATA time;
+      RTC_DATA_GET(&time);
+
+      char buf[20];
+      snprintf(buf,20,"%04d-%02d-%02d",time.year,time.month,time.day);
+      ssd1306_basic_string(0, 0, buf, strlen(buf), 1,SSD1306_FONT_16);
+      
+      snprintf(buf,20,"%02d:%02d:%02d",time.hour,time.minute,time.second);
+      ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+
+      HAL_Delay(1000);
 
 
 
