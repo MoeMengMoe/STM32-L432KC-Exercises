@@ -34,7 +34,7 @@ Output artifacts: `.elf`, `.hex`, `.bin` in `build/Debug/`.
 | Peripheral | Pins           | Function              |
 |------------|----------------|-----------------------|
 | USART1     | PA9(TX), PA10(RX) | Debug serial (115200) |
-| I2C3       | PB4(SCL), PB3(SDA) | SSD1306 OLED (0x3C)  |
+| I2C3       | PA7(SCL), PB4(SDA, NJTRST) | SSD1306 OLED (0x3C)  |
 | LED_GREEN  | PB6            | Active high            |
 | KEY        | PB5            | Button input           |
 

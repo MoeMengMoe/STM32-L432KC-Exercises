@@ -50,7 +50,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-unsigned char message[20] ;
+uint8_t message[20];
+uint8_t rx_buf[64];
+uint8_t rx_idx=0;
+uint8_t rx_char;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,18 +69,36 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   {
     if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)
     {
-      HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
     }
     else
     {
-      HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
     }
   }
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  HAL_UART_Receive_IT(&huart1, (uint8_t*)message, 20);
-  RTC_DATA_SET_BY_STRING((char*)message);
+  if (huart->Instance == USART1)
+  {
+    if (rx_char=='\n' || rx_char=='\r')
+    {
+      rx_buf[rx_idx] = '\0'; // 终止字符串
+      printf("Received: %s\r\n", rx_buf);
+      RTC_DATA_SET_BY_STRING((char*)rx_buf);
+      rx_idx = 0; // 重置索引准备接收下一条命令
+    }
+    else
+    {
+      if (rx_idx < sizeof(rx_buf) - 1) // 确保不会溢出
+      {
+        rx_buf[rx_idx++] = rx_char; // 存储接收到的字符并递增索引
+      }
+      HAL_UART_Receive_IT(&huart1, &rx_char, 1);
+    }
+    // RTC_DATA_SET_BY_STRING((char*)message);
+    //
+  }
 }
 
 int _write(int file, char *ptr, int len)
@@ -93,13 +114,16 @@ int _write(int file, char *ptr, int len)
 }
 int _read(int file, char *ptr, int len)
 {
+  (void)file;
+  (void)len;
+
   HAL_StatusTypeDef status = HAL_UART_Receive(&huart1, (uint8_t *)ptr, 1, HAL_MAX_DELAY);
 
   if (status == HAL_OK) {
     HAL_UART_Transmit(&huart1, (uint8_t *)ptr, 1, HAL_MAX_DELAY); // 回显
     return 1;
   } else {
-    return -1;
+    return 0; // EOF
   }
 }
 
@@ -168,8 +192,10 @@ int main(void)
     ssd1306_basic_string(0, 20, "LibDriver OK", 12, 1, SSD1306_FONT_12);
 
     ssd1306_basic_rect(0, 40, 127, 60, 1);
-    ssd1306_basic_clear();
+
     HAL_Delay(1000);
+
+    ssd1306_basic_clear();
   }
   /* USER CODE END 2 */
 
@@ -177,19 +203,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      RTC_TIME_DATA time;
-      RTC_DATA_GET(&time);
+    RTC_TIME_DATA time;
+    RTC_DATA_GET(&time);
 
-      char buf[20];
-      snprintf(buf,20,"%04d-%02d-%02d",time.year,time.month,time.day);
-      ssd1306_basic_string(0, 0, buf, strlen(buf), 1,SSD1306_FONT_16);
-      
-      snprintf(buf,20,"%02d:%02d:%02d",time.hour,time.minute,time.second);
-      ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+    char buf[20];
+    snprintf(buf, 20, "%04d-%02d-%02d", time.year, time.month, time.day);
+    ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
 
-      HAL_Delay(1000);
+    snprintf(buf, 20, "%02d:%02d:%02d", time.hour, time.minute, time.second);
+    ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
 
-
+    HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
