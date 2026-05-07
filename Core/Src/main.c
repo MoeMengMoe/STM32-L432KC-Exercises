@@ -53,7 +53,7 @@
 uint8_t message[20];
 uint8_t rx_buf[64];
 uint8_t rx_idx=0;
-uint8_t rx_char;
+uint8_t rx_char;//建立环形缓冲区以解决串口收发被中断打断的情况
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,10 +94,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       {
         rx_buf[rx_idx++] = rx_char; // 存储接收到的字符并递增索引
       }
-      HAL_UART_Receive_IT(&huart1, &rx_char, 1);
+      
     }
+    HAL_UART_Receive_IT(&huart1, &rx_char, 1);
     // RTC_DATA_SET_BY_STRING((char*)message);
-    //
   }
 }
 
@@ -170,7 +170,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
-  HAL_UART_Receive_IT(&huart1, message, 20);
+  HAL_UART_Receive_IT(&huart1, &rx_char,1);
   uint8_t res;
 
   printf("Starting SSD1306 System...\r\n");
