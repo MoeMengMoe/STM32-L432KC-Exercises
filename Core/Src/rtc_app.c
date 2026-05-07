@@ -95,12 +95,13 @@ HAL_StatusTypeDef RTC_DATA_SET_BY_STRUCT(RTC_TIME_DATA* data)
 HAL_StatusTypeDef RTC_DATA_SET_BY_STRING(char* str)
 {
     RTC_TIME_DATA data = {0};
-    int matched = sscanf(str, "%hu-%hhu-%hhu %hhu:%hhu:%hhu",
+    int matched = sscanf(str, "%hu-%hhu-%hhu-%hhu:%hhu:%hhu",
                          &data.year, &data.month, &data.day,
                          &data.hour, &data.minute, &data.second);
     if (matched != 6)
     {
         return HAL_ERROR;
     }
+    data.weekday = RTC_WEEKDAY_SUNDAY;
     return RTC_DATA_SET_BY_STRUCT(&data);
 }

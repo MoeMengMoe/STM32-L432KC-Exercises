@@ -18,10 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "driver_ssd1306.h"
 #include "i2c.h"
 #include "rtc.h"
-#include "stm32l4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -63,10 +61,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == KEY_Pin)
   {
-    HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin);
+    printf("key irq\r\n");
+    HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
+    // HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin);
   }
   if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
   {
+    printf("temp irq\r\n");
     if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)
     {
       HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
@@ -85,7 +86,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
       rx_buf[rx_idx] = '\0'; // 终止字符串
       printf("Received: %s\r\n", rx_buf);
-      RTC_DATA_SET_BY_STRING((char*)rx_buf);
+      if (RTC_DATA_SET_BY_STRING((char*)rx_buf)==HAL_OK)
+      {
+        printf("RTC updated successfully!\r\n");
+      }
+      else
+      {
+        printf("Failed to update RTC. Please use format: YYYY-MM-DD-HH:MM:SS\r\n");
+      }
       rx_idx = 0; // 重置索引准备接收下一条命令
     }
     else
@@ -246,10 +254,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE
-                              |RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
