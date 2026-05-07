@@ -34,7 +34,9 @@ enable_language(C ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/rtc_app.h
-        Core/Src/rtc_app.c)
+        Core/Src/rtc_app.c
+        Core/Inc/AHT20.h
+        Core/Src/AHT20.c)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -95,10 +97,22 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/src"
         "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/interface"
         "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/example"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/interface"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/example"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/interface"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/example"
 )
 
 # 2. 递归扫描源文件（确保路径加引号，防止空格报错）
-file(GLOB_RECURSE LIBDRIVER_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
+file(GLOB_RECURSE LIBDRIVER_SSD1306_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
+file(GLOB_RECURSE LIBDRIVER_AHT20_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/*.c")
+file(GLOB_RECURSE LIBDRIVER_BMP280_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/*.c")
 
 # 3. 将源文件添加到目标
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${LIBDRIVER_SRCS})
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        ${LIBDRIVER_SSD1306_SRCS}
+        ${LIBDRIVER_AHT20_SRCS}
+        ${LIBDRIVER_BMP280_SRCS}
+)

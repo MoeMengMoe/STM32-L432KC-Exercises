@@ -62,12 +62,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_RED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : TEMP_ARM_Pin */
-  GPIO_InitStruct.Pin = TEMP_ARM_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(TEMP_ARM_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : KEY_Pin */
   GPIO_InitStruct.Pin = KEY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;

@@ -27,6 +27,8 @@
 /* USER CODE BEGIN Includes */
 #include<stdio.h>
 #include"driver_ssd1306_basic.h"
+#include "driver_aht20_basic.h"
+#include "driver_bmp280_basic.h"
 #include "rtc_app.h"
 /* USER CODE END Includes */
 
@@ -37,7 +39,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define TIME_PAGE 0
+#define STATUS_PAGE 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,6 +55,12 @@ uint8_t message[20];
 uint8_t rx_buf[64];
 uint8_t rx_idx=0;
 uint8_t rx_char;//建立环形缓冲区以解决串口收发被中断打断的情况
+uint8_t CUR_PAGE = TIME_PAGE;
+volatile uint8_t page_switch_flag = 0;
+/*这个关键词意在告诉编译器不要优化这个变量 因为编译器无法识别由于中断等硬件操作导致的标志位变化
+ * 通常用于修饰寄存器值 中断中的标志位
+ */
+RTC_TIME_DATA time;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,7 +72,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   {
     printf("key irq\r\n");
     HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
-    // HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin);
+    CUR_PAGE=(CUR_PAGE+1)%2;
+    page_switch_flag = 1;
   }
   if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
   {
@@ -133,6 +143,35 @@ int _read(int file, char *ptr, int len)
   } else {
     return 0; // EOF
   }
+}
+
+void SHOW_TIME_PAGE()
+{
+  /* 直接覆写，不清屏避免闪烁 */
+  /* 第1行: 日期 */
+  char buf[21];
+  snprintf(buf, 20, "%04d-%02d-%02d", time.year, time.month, time.day);
+  ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
+
+  /* 第2行: 时间 */
+  snprintf(buf, 20, "%02d:%02d:%02d", time.hour, time.minute, time.second);
+  ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+  HAL_Delay(1000);
+}
+
+void SHOW_STATUS_PAGE(float aht20_temp,uint8_t aht20_hum,float bmp280_press)
+{
+
+  char buf[21];
+  /* 第3行: AHT20 温湿度 */
+  snprintf(buf, 20, "T:%0.1fC H:%d%%", aht20_temp, aht20_hum);
+  ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
+
+  /* 第4行: BMP280 气压 */
+  snprintf(buf, 20, "P:%0.1fhPa", bmp280_press / 100.0f);
+  ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+
+  HAL_Delay(1000);
 }
 
 
@@ -205,24 +244,72 @@ int main(void)
 
     ssd1306_basic_clear();
   }
+
+  /* 初始化AHT20温湿度传感器 */
+  res = aht20_basic_init();
+  if (res != 0)
+  {
+    printf("aht20: init failed, code: %d\r\n", res);
+  }
+  else
+  {
+    printf("aht20: init success!\r\n");
+  }
+
+  /* 初始化BMP280气压传感器 */
+  res = bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_LOW);
+  if (res != 0)
+  {
+    printf("bmp280: init failed, code: %d\r\n", res);
+  }
+  else
+  {
+    printf("bmp280: init success!\r\n");
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    RTC_TIME_DATA time;
+
     RTC_DATA_GET(&time);
 
-    char buf[20];
-    snprintf(buf, 20, "%04d-%02d-%02d", time.year, time.month, time.day);
-    ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
+    if (page_switch_flag)//避免在中断中处理清屏 拖慢速度 建议在中断中置标志位
+    {
+      ssd1306_basic_clear();
+      page_switch_flag = 0;
+    }
 
-    snprintf(buf, 20, "%02d:%02d:%02d", time.hour, time.minute, time.second);
-    ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+    switch (CUR_PAGE)
+    {
+    case TIME_PAGE:
+      SHOW_TIME_PAGE();
+      break;
+    case STATUS_PAGE:
+    {
+        /*将传感器读取放到具体页状态中读取 避免全局读取拖慢显示进度*/
+      float aht20_temp = 0.0f;
+      uint8_t aht20_hum = 0;
+      if (aht20_basic_read(&aht20_temp, &aht20_hum) != 0)
+      {
+        printf("aht20: read failed\r\n");
+      }
 
-    HAL_Delay(1000);
+      float bmp280_temp = 0.0f;
+      float bmp280_press = 0.0f;
+      if (bmp280_basic_read(&bmp280_temp, &bmp280_press) != 0)
+      {
+        printf("bmp280: read failed\r\n");
+      }
+      SHOW_STATUS_PAGE(aht20_temp, aht20_hum, bmp280_press);
+      break;
+    }
+    default:
+      CUR_PAGE=TIME_PAGE;
+      break;
 
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
