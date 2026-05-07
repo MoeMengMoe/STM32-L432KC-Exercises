@@ -95,13 +95,21 @@ HAL_StatusTypeDef RTC_DATA_SET_BY_STRUCT(RTC_TIME_DATA* data)
 HAL_StatusTypeDef RTC_DATA_SET_BY_STRING(char* str)
 {
     RTC_TIME_DATA data = {0};
-    int matched = sscanf(str, "%hu-%hhu-%hhu-%hhu:%hhu:%hhu",
-                         &data.year, &data.month, &data.day,
-                         &data.hour, &data.minute, &data.second);
+    unsigned int y, mo, d, h, mi, s;
+    int matched = sscanf(str, "%u-%u-%u-%u:%u:%u", &y, &mo, &d, &h, &mi, &s);//使用临时变量代替使用%hu
+
     if (matched != 6)
     {
         return HAL_ERROR;
     }
+
+    data.year   = (uint16_t)y;
+    data.month  = (uint8_t)mo;
+    data.day    = (uint8_t)d;
+    data.hour   = (uint8_t)h;
+    data.minute = (uint8_t)mi;
+    data.second = (uint8_t)s;
     data.weekday = RTC_WEEKDAY_SUNDAY;
+
     return RTC_DATA_SET_BY_STRUCT(&data);
 }
