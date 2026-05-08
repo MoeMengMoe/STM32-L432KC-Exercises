@@ -38,7 +38,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/AHT20.h
         Core/Src/AHT20.c
         Core/Inc/drv8833.h
-        Core/Src/drv8833.c)
+        Core/Src/drv8833.c
+        Core/Inc/fan_app.h
+        Core/Src/fan_app.c)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -107,17 +109,15 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/example"
 )
 
-# 2. 递归扫描源文件（确保路径加引号，防止空格报错）
-file(GLOB_RECURSE LIBDRIVER_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
-
-# 3. 将源文件添加到目标
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${LIBDRIVER_SRCS})
-
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal"
-)
-
+# 2. 添加实际使用的中间件源文件
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833.c"
-#        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833_motor.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/src/driver_ssd1306.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/interface/driver_ssd1306_interface_template.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/example/driver_ssd1306_basic.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/src/driver_aht20.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/interface/driver_aht20_interface_template.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/example/driver_aht20_basic.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/src/driver_bmp280.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/interface/driver_bmp280_interface_template.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/example/driver_bmp280_basic.c"
 )
