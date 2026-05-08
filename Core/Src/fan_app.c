@@ -73,21 +73,26 @@ void FAN_Auto_Mode(int tempx10, int temp_thr){
         DRV8833_Forward(20);
         fan_status.speed_percent=20;
     }
-    else if(diff>0&&diff<=30){
+    else if(diff>0&&diff<=20){
+        DRV8833_Forward(20);
+        fan_status.speed_percent=20;
+    }
+    else if(diff>20&&diff<=30){
+        fan_status.direction=FAN_DIRECTION_STOP;
+        DRV8833_Brake();
+        fan_status.speed_percent=0;
+    }
+    else if(diff>30&&diff<=40){
         DRV8833_Forward(40);
         fan_status.speed_percent=40;
     }
-    else if(diff>30&&diff<=60){
+    else if(diff>40&&diff<=60){
         DRV8833_Forward(60);
         fan_status.speed_percent=60;
     }
-    else if(diff>60&&diff<=90){
+    else if(diff>60){
         DRV8833_Forward(80);
         fan_status.speed_percent=80;
-    }
-    else if(diff>90){
-        DRV8833_Forward(100);
-        fan_status.speed_percent=100;
     }
     
     
