@@ -34,6 +34,8 @@
 #include "rtc_app.h"
 #include <string.h>
 #include "fan_app.h"
+#include "buzzer_app.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,6 +63,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+// 示例乐谱：卡农 (简短版)
+const BuzzerNote canon_in_d[] = {
+    {NOTE_D4, 500}, {NOTE_A3, 500}, {NOTE_B3, 500}, {NOTE_FS3, 500},
+    {NOTE_G3, 500}, {NOTE_D3, 500}, {NOTE_G3, 500}, {NOTE_A3, 500},
+    {NOTE_D5, 500}, {NOTE_CS5, 500}, {NOTE_B4, 500}, {NOTE_A4, 500},
+    {NOTE_G4, 500}, {NOTE_FS4, 500}, {NOTE_G4, 500}, {NOTE_A4, 500}
+};
+
 uint8_t message[20];
 uint8_t rx_buf[64];
 uint8_t rx_idx=0;
@@ -70,7 +80,7 @@ uint8_t FAN_MODE=FAN_MODE_AUTO;
 volatile uint8_t page_switch_flag = 0;
 const char *MODE_MESSAGE[2]={"AUTO","MANUAL"};
 uint16_t temp_thr=250;
-int status_aht20_temp_x10 = 0;
+volatile int status_aht20_temp_x10 = 0;
 uint8_t status_aht20_hum = 0;
 int status_bmp280_press_hpa_x10 = 0;
 /*这个关键词意在告诉编译器不要优化这个变量 因为编译器无法识别由于中断等硬件操作导致的标志位变化
@@ -86,16 +96,28 @@ static void I2C3_Scan(void);
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+  static uint32_t last_key_tick = 0;
+  uint32_t now = HAL_GetTick();
+
   if (GPIO_Pin == KEY_Pin)
   {
-    printf("key irq\r\n");
-    HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
-    CUR_PAGE=(CUR_PAGE+1)%2;
-    page_switch_flag = 1;
+    /* 软件消抖：200ms 内忽略连续触发，并确认引脚确实为低电平 */
+    if ((now - last_key_tick) > 200)
+    {
+      if (HAL_GPIO_ReadPin(KEY_GPIO_Port, KEY_Pin) == GPIO_PIN_RESET)
+      {
+        printf("key irq (debounced)\r\n");
+        HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
+        CUR_PAGE = (CUR_PAGE + 1) % 2;
+        page_switch_flag = 1;
+        last_key_tick = now;
+      }
+    }
   }
   if(GPIO_Pin==ENC_KEY_Pin){
       if(CUR_PAGE==STATUS_PAGE){
           FAN_MODE=(FAN_MODE+1)%2;
+          printf("FAN_MODE=%d %s\r\n", FAN_MODE, MODE_MESSAGE[FAN_MODE]);
       }
   }
   // if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
@@ -257,6 +279,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_RTC_Init();
+  MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
@@ -317,6 +340,11 @@ int main(void)
 
   FAN_APP_Init();
 
+  /* 初始化蜂鸣器并播放开机音乐 */
+
+  BUZZER_Init(&htim15, TIM_CHANNEL_1);
+  BUZZER_PlayMelody(canon_in_d, sizeof(canon_in_d) / sizeof(BuzzerNote));
+
   uint32_t last_fan_tick = 0;
   uint32_t last_display_tick = 0;
   uint32_t last_rtc_tick = 0;
@@ -329,6 +357,9 @@ int main(void)
   while (1)
   {
     uint32_t now = HAL_GetTick();
+
+    /* 蜂鸣器非阻塞更新 */
+    BUZZER_Update();
 
     if ((now - last_fan_tick) >= FAN_CONTROL_PERIOD_MS)
     {
@@ -529,4 +560,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-

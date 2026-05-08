@@ -56,3 +56,14 @@
 - **修复**：ISR 中做 I2C 清屏（ssd1306_basic_clear）不稳定 → 改为标志位在主循环处理
 - **修复**：`snprintf` 缓冲区不足导致的编译警告
 - **优化**：传感器读取仅在 STATUS_PAGE 时执行，避免I2C总线浪费
+
+## 2026-05-08 — 风扇控制功能开发（进行中）
+- 硬件切换：旋转编码器 → PWM 电位器（TIM2_CH1/PA0 输入捕获）
+- 新增 ENC_KEY（PA6）编码器按键，EXTI 下降沿中断
+- 风扇控制双模式：MANUAL（电位器直控速度）和 AUTO（温度阈值 25°C 自动调速）
+- FAN_Auto_Mode() 分段调速函数：25°C起转 20%、每+3°C递增一档至满速
+- STATUS_PAGE 显示 MODE 指示（AUTO/MANUAL）和阈值信息
+- **发现**：ENC_KEY 上升沿+上拉导致上电误触发 → 改为下降沿触发
+- **发现**：FAN_APP_Update 每轮覆盖电机控制，覆盖 AUTO 模式输出 → 待修复
+- **发现**：TIM2 仍为编码器模式，未切换为 PWM 输入捕获 → 待修复
+- TODO：TIM2 改 PWM 输入捕获、写入 HAL_TIM_IC_CaptureCallback、增加 FAN_PAGE、I2C Timing 覆盖

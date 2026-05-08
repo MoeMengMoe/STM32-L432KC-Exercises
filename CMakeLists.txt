@@ -40,7 +40,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/drv8833.h
         Core/Src/drv8833.c
         Core/Inc/fan_app.h
-        Core/Src/fan_app.c)
+        Core/Src/fan_app.c
+        Core/Inc/buzzer_app.h
+        Core/Src/buzzer_app.c)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
