@@ -26,13 +26,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdint.h>
 #include<stdio.h>
 #include"driver_ssd1306_basic.h"
 #include "driver_aht20_basic.h"
 #include "driver_bmp280_basic.h"
 #include "rtc_app.h"
 #include <string.h>
-#include"drv8833.h"
+#include "fan_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,7 +45,12 @@
 /* USER CODE BEGIN PD */
 #define TIME_PAGE 0
 #define STATUS_PAGE 1
-#define COUNT_MID 20
+#define FAN_MODE_MANUAL 1
+#define FAN_MODE_AUTO 0
+#define FAN_CONTROL_PERIOD_MS 10U
+#define DISPLAY_REFRESH_PERIOD_MS 250U
+#define RTC_REFRESH_PERIOD_MS 250U
+#define SENSOR_REFRESH_PERIOD_MS 1000U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,7 +66,13 @@ uint8_t rx_buf[64];
 uint8_t rx_idx=0;
 uint8_t rx_char;//建立环形缓冲区以解决串口收发被中断打断的情况
 uint8_t CUR_PAGE = TIME_PAGE;
+uint8_t FAN_MODE=FAN_MODE_AUTO;
 volatile uint8_t page_switch_flag = 0;
+const char *MODE_MESSAGE[2]={"AUTO","MANUAL"};
+uint16_t temp_thr=250;
+int status_aht20_temp_x10 = 0;
+uint8_t status_aht20_hum = 0;
+int status_bmp280_press_hpa_x10 = 0;
 /*这个关键词意在告诉编译器不要优化这个变量 因为编译器无法识别由于中断等硬件操作导致的标志位变化
  * 通常用于修饰寄存器值 中断中的标志位
  */
@@ -80,6 +92,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
     CUR_PAGE=(CUR_PAGE+1)%2;
     page_switch_flag = 1;
+  }
+  if(GPIO_Pin==ENC_KEY_Pin){
+      if(CUR_PAGE==STATUS_PAGE){
+          FAN_MODE=(FAN_MODE+1)%2;
+      }
   }
   // if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
   // {
@@ -162,10 +179,9 @@ void SHOW_TIME_PAGE()
   /* 第2行: 时间 */
   snprintf(buf, sizeof(buf), "%02d:%02d:%02d", time.hour, time.minute, time.second);
   ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
-  HAL_Delay(1000);
 }
 
-void SHOW_STATUS_PAGE(int aht20_temp_x10,uint8_t aht20_hum,int bmp280_press_hpa_x10)
+void SHOW_STATUS_PAGE(int aht20_temp_x10, uint8_t aht20_hum, int bmp280_press_hpa_x10, FanStatus fan)
 {
 
   char buf[24];
@@ -178,8 +194,25 @@ void SHOW_STATUS_PAGE(int aht20_temp_x10,uint8_t aht20_hum,int bmp280_press_hpa_
   if (pd < 0) pd = -pd;
   snprintf(buf, sizeof(buf), "P:%d.%dhPa", bmp280_press_hpa_x10 / 10, pd);
   ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+  const char *dir = "STOP";
 
-  HAL_Delay(1000);
+  if (fan.direction == FAN_DIRECTION_FORWARD)
+  {
+    dir = "FWD";
+  }
+  else if (fan.direction == FAN_DIRECTION_BACKWARD)
+  {
+    dir = "REV";
+  }
+
+  snprintf(buf, sizeof(buf), "Fan:%s %3u%% %s", dir, fan.speed_percent,MODE_MESSAGE[FAN_MODE]);
+  ssd1306_basic_string(0, 40, buf, strlen(buf), 1, SSD1306_FONT_12);
+  
+  // snprintf(buf,sizeof(buf),"Threshold for temp: 25C");
+  // ssd1306_basic_string(0, 52, buf, strlen(buf), 1, SSD1306_FONT_12);
+  
+
+  
 }
 
 
@@ -221,10 +254,9 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_I2C3_Init();
-  MX_RTC_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
-  DRV8833_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
@@ -283,14 +315,12 @@ int main(void)
 
 
 
-  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+  FAN_APP_Init();
 
-  uint8_t count =0;
-  uint8_t speed=0;
-  __HAL_TIM_SET_COUNTER(&htim2,COUNT_MID);
-
-
-
+  uint32_t last_fan_tick = 0;
+  uint32_t last_display_tick = 0;
+  uint32_t last_rtc_tick = 0;
+  uint32_t last_sensor_tick = 0;
 
   /* USER CODE END 2 */
 
@@ -298,46 +328,36 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  count=__HAL_TIM_GetCounter(&htim2);
-    if (count>60000)
+    uint32_t now = HAL_GetTick();
+
+    if ((now - last_fan_tick) >= FAN_CONTROL_PERIOD_MS)
     {
-      count=0;
-      __HAL_TIM_SetCounter(&htim2, 0);
-    }
-    if (count>COUNT_MID*2)
-    {
-      count=COUNT_MID*2;
-      __HAL_TIM_SET_COUNTER(&htim2,count);
+      if (FAN_MODE == FAN_MODE_AUTO)
+      {
+        FAN_Auto_Mode(status_aht20_temp_x10, temp_thr);
+      }
+      else
+      {
+        FAN_APP_Update();
+      }
+      last_fan_tick = now;
     }
 
-    RTC_DATA_GET(&time);
+    if ((now - last_rtc_tick) >= RTC_REFRESH_PERIOD_MS)
+    {
+      RTC_DATA_GET(&time);
+      last_rtc_tick = now;
+    }
 
-    if (page_switch_flag)//避免在中断中处理清屏 拖慢速度 建议在中断中置标志位
+    if (page_switch_flag)
     {
       ssd1306_basic_clear();
       page_switch_flag = 0;
+      last_display_tick = 0;
     }
-    //处理编码器识别
-    if (count<COUNT_MID)
-    {
-      speed=(COUNT_MID-count)*100/COUNT_MID;
-      DRV8833_Backward(speed);
 
-    }else if (count>COUNT_MID)
+    if (CUR_PAGE == STATUS_PAGE && (now - last_sensor_tick) >= SENSOR_REFRESH_PERIOD_MS)
     {
-      speed=(count-COUNT_MID)*100/COUNT_MID;
-      DRV8833_Forward(speed);
-    }
-    HAL_Delay(100);
-//状态机逻辑
-    switch (CUR_PAGE)
-    {
-    case TIME_PAGE:
-      SHOW_TIME_PAGE();
-      break;
-    case STATUS_PAGE:
-    {
-        /*将传感器读取放到具体页状态中读取 避免全局读取拖慢显示进度*/
       float aht20_temp = 0.0f;
       uint8_t aht20_hum = 0;
       if (aht20_basic_read(&aht20_temp, &aht20_hum) != 0)
@@ -347,6 +367,8 @@ int main(void)
       else
       {
         int t_x10 = (int)(aht20_temp * 10);
+        status_aht20_temp_x10 = t_x10;
+        status_aht20_hum = aht20_hum;
         printf("aht20: temp=%d.%d hum=%d\r\n", t_x10 / 10, (t_x10 < 0 ? -t_x10 : t_x10) % 10, aht20_hum);
       }
 
@@ -359,9 +381,28 @@ int main(void)
       else
       {
         int p_hpa_x10 = (int)(bmp280_press / 10.0f);
+        status_bmp280_press_hpa_x10 = p_hpa_x10;
         printf("bmp280: press=%d.%d\r\n", p_hpa_x10 / 10, p_hpa_x10 % 10);
       }
-      SHOW_STATUS_PAGE((int)(aht20_temp * 10), aht20_hum, (int)(bmp280_press / 10.0f));
+      last_sensor_tick = now;
+    }
+
+    if ((now - last_display_tick) < DISPLAY_REFRESH_PERIOD_MS)
+    {
+      HAL_Delay(1);
+      continue;
+    }
+    last_display_tick = now;
+
+//状态机逻辑
+    switch (CUR_PAGE)
+    {
+    case TIME_PAGE:
+      SHOW_TIME_PAGE();
+      break;
+    case STATUS_PAGE:
+    {
+      SHOW_STATUS_PAGE(status_aht20_temp_x10, status_aht20_hum, status_bmp280_press_hpa_x10, FAN_APP_GetStatus());
       break;
     }
     default:
@@ -447,7 +488,7 @@ static void I2C3_Scan(void)
   printf("I2C3 bus scan:\r\n");
   for (uint8_t addr = 1; addr < 128; addr++)
   {
-    /* HAL_I2C_IsDevi·ceReady 使用 8-bit 地址（左移 1 位） */
+    /* HAL_I2C_IsDeviceReady 使用 8-bit 地址（左移 1 位） */
     if (HAL_I2C_IsDeviceReady(&hi2c3, (uint16_t)(addr << 1), 1, 100) == HAL_OK)
     {
       printf("  0x%02X (7-bit) / 0x%02X (8-bit) -> ACK!\r\n", addr, addr << 1);
@@ -488,3 +529,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
