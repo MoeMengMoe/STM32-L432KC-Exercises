@@ -152,3 +152,76 @@ void xxx_interface_debug_print(...)        { vprintf(fmt, args); }  // 依赖 pr
 - ISR 和主循环共享的标志位需加 `volatile`
 - 单字节读写在 Cortex-M4 上是原子的，`uint8_t` 标志位不需要额外保护
 - 复杂共享数据需考虑关中断保护或原子操作
+
+---
+
+## newlib-nano 与浮点格式化
+
+### 背景
+工具链使用 `--specs=nano.specs`（newlib-nano）作为 C 标准库。相比完整 newlib，nano 版裁剪了 `printf`/`snprintf` 的浮点数格式化支持以节省 Flash。
+
+### 机制
+`printf` 内部用 `_printf_float` 符号作为"是否包含浮点代码"的条件。浮点格式化代码放在独立目标文件中，链接器只有遇到该符号引用才会拉入。
+
+### 启用方式
+```cmake
+# CMakeLists.txt 中加链接选项
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE LINKER:-u,_printf_float)
+```
+代价：Flash 增加约 10KB。对于 256KB Flash 的 L432KC 可接受，但建议用整数转换代替。
+
+### 整数转换替代方案
+```c
+float temp = 25.3f;
+int t_x10 = (int)(temp * 10);
+// 输出 "25.3"
+snprintf(buf, 20, "%d.%d", t_x10 / 10, abs(t_x10 % 10));
+```
+
+---
+
+## I2C 时序计算
+
+### TIMINGR 寄存器（STM32L4）
+```
+位 [31:28] PRESC   = 定时器预分频 (0~15)
+位 [27:24] SCLDEL  = 数据建立时间 (0~15)
+位 [23:20] SDADEL  = 数据保持时间 (0~15)
+位 [19:16] 保留    = 必须为 0
+位 [15:8]  SCLH    = SCL 高电平周期 (0~255)
+位 [7:0]   SCLL    = SCL 低电平周期 (0~255)
+```
+
+### 频率公式
+```
+定时器时钟 = PCLK1 / (PRESC + 1)
+f_SCL = 定时器时钟 / (SCLH + SCLL)
+```
+
+### 示例计算（PCLK1 = 75.5MHz，目标 100kHz）
+```
+PRESC  = 3           → 定时器时钟 = 75.5 / 4 = 18.875 MHz
+SCLH   = 94 (0x5E)   → 高电平 ≈ 94 × 53ns = 4.98 µs
+SCLL   = 95 (0x5F)   → 低电平 ≈ 95 × 53ns = 5.04 µs
+f_SCL  = 18.875e6 / (94+95) ≈ 99.9 kHz
+SCLDEL = 6           → 数据建立时间 ≈ 6 × 53ns ≈ 318 ns
+SDADEL = 9           → 数据保持时间 ≈ 9 × 53ns ≈ 477 ns
+Timing = (3<<28)|(6<<24)|(9<<20)|(0<<16)|(94<<8)|95 = 0x36905E5F
+```
+
+### 常见 Timing 值参考（PCLK1=75.5MHz）
+| 目标频率 | Timing 值 | PRESC | SCLH | SCLL |
+|---------|-----------|-------|------|------|
+| 100kHz  | 0x36905E5F | 3     | 94   | 95   |
+| 400kHz  | 0x00A10F89 | 0     | 15   | 137  |
+
+### 调试技巧
+I2C 扫描比猜地址更可靠：
+```c
+for (uint8_t addr = 1; addr < 128; addr++) {
+    if (HAL_I2C_IsDeviceReady(&hi2c3, addr << 1, 1, 100) == HAL_OK) {
+        printf("  0x%02X -> ACK!\r\n", addr);
+    }
+}
+```
+`HAL_I2C_IsDeviceReady` 使用 8-bit 地址（7-bit 左移 1 位）。

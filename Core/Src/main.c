@@ -30,6 +30,7 @@
 #include "driver_aht20_basic.h"
 #include "driver_bmp280_basic.h"
 #include "rtc_app.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,8 @@ RTC_TIME_DATA time;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+static void I2C3_Scan(void);
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == KEY_Pin)
@@ -75,18 +78,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     CUR_PAGE=(CUR_PAGE+1)%2;
     page_switch_flag = 1;
   }
-  if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
-  {
-    printf("temp irq\r\n");
-    if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)
-    {
-      HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
-    }
-    else
-    {
-      HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
-    }
-  }
+  // if (GPIO_Pin == TEMP_ARM_Pin)//温度高亮起小灯发送0 温度低小灯熄灭发送1 按住远离电位器和小灯的四块电阻可升温
+  // {
+  //   printf("temp irq\r\n");
+  //   if (HAL_GPIO_ReadPin(TEMP_ARM_GPIO_Port, TEMP_ARM_Pin) == GPIO_PIN_RESET)
+  //   {
+  //     HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+  //   }
+  //   else
+  //   {
+  //     HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
+  //   }
+  // }
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -149,26 +152,28 @@ void SHOW_TIME_PAGE()
 {
   /* 直接覆写，不清屏避免闪烁 */
   /* 第1行: 日期 */
-  char buf[21];
-  snprintf(buf, 20, "%04d-%02d-%02d", time.year, time.month, time.day);
+  char buf[24];
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02d", time.year, time.month, time.day);
   ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
 
   /* 第2行: 时间 */
-  snprintf(buf, 20, "%02d:%02d:%02d", time.hour, time.minute, time.second);
+  snprintf(buf, sizeof(buf), "%02d:%02d:%02d", time.hour, time.minute, time.second);
   ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
   HAL_Delay(1000);
 }
 
-void SHOW_STATUS_PAGE(float aht20_temp,uint8_t aht20_hum,float bmp280_press)
+void SHOW_STATUS_PAGE(int aht20_temp_x10,uint8_t aht20_hum,int bmp280_press_hpa_x10)
 {
 
-  char buf[21];
-  /* 第3行: AHT20 温湿度 */
-  snprintf(buf, 20, "T:%0.1fC H:%d%%", aht20_temp, aht20_hum);
+  char buf[24];
+  int td = aht20_temp_x10 % 10;
+  if (td < 0) td = -td;
+  snprintf(buf, sizeof(buf), "T:%d.%dC H:%d%%", aht20_temp_x10 / 10, td, aht20_hum);
   ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
 
-  /* 第4行: BMP280 气压 */
-  snprintf(buf, 20, "P:%0.1fhPa", bmp280_press / 100.0f);
+  int pd = bmp280_press_hpa_x10 % 10;
+  if (pd < 0) pd = -pd;
+  snprintf(buf, sizeof(buf), "P:%d.%dhPa", bmp280_press_hpa_x10 / 10, pd);
   ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
 
   HAL_Delay(1000);
@@ -245,6 +250,9 @@ int main(void)
     ssd1306_basic_clear();
   }
 
+  /* 扫描 I2C3 总线，查看哪些设备在线 */
+  I2C3_Scan();
+
   /* 初始化AHT20温湿度传感器 */
   res = aht20_basic_init();
   if (res != 0)
@@ -257,7 +265,7 @@ int main(void)
   }
 
   /* 初始化BMP280气压传感器 */
-  res = bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_LOW);
+  res = bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_HIGH);
   if (res != 0)
   {
     printf("bmp280: init failed, code: %d\r\n", res);
@@ -295,6 +303,11 @@ int main(void)
       {
         printf("aht20: read failed\r\n");
       }
+      else
+      {
+        int t_x10 = (int)(aht20_temp * 10);
+        printf("aht20: temp=%d.%d hum=%d\r\n", t_x10 / 10, (t_x10 < 0 ? -t_x10 : t_x10) % 10, aht20_hum);
+      }
 
       float bmp280_temp = 0.0f;
       float bmp280_press = 0.0f;
@@ -302,7 +315,12 @@ int main(void)
       {
         printf("bmp280: read failed\r\n");
       }
-      SHOW_STATUS_PAGE(aht20_temp, aht20_hum, bmp280_press);
+      else
+      {
+        int p_hpa_x10 = (int)(bmp280_press / 10.0f);
+        printf("bmp280: press=%d.%d\r\n", p_hpa_x10 / 10, p_hpa_x10 % 10);
+      }
+      SHOW_STATUS_PAGE((int)(aht20_temp * 10), aht20_hum, (int)(bmp280_press / 10.0f));
       break;
     }
     default:
@@ -378,6 +396,24 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/**
+ * @brief  I2C 总线扫描：遍历所有 7-bit 地址，打印哪些设备有 ACK 响应
+ * @param  hi2c: I2C 句柄指针
+ */
+static void I2C3_Scan(void)
+{
+  printf("I2C3 bus scan:\r\n");
+  for (uint8_t addr = 1; addr < 128; addr++)
+  {
+    /* HAL_I2C_IsDevi·ceReady 使用 8-bit 地址（左移 1 位） */
+    if (HAL_I2C_IsDeviceReady(&hi2c3, (uint16_t)(addr << 1), 1, 100) == HAL_OK)
+    {
+      printf("  0x%02X (7-bit) / 0x%02X (8-bit) -> ACK!\r\n", addr, addr << 1);
+    }
+  }
+  printf("Scan done.\r\n");
+}
 
 /* USER CODE END 4 */
 
