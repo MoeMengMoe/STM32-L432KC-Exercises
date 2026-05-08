@@ -112,3 +112,62 @@ bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_LOW);
 // ADO 接 3.3V
 bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_HIGH);
 ```
+
+## 9. I2C 时钟过快导致传感器无响应
+
+**现象**: SSD1306 偶尔工作，AHT20/BMP280 完全无响应，串口输出 "read status failed" / "read id failed"。但 I2C 总线扫描（`HAL_I2C_IsDeviceReady`）能 ACK。
+
+**原因**: CubeMX 默认生成的 I2C3 Timing `0x00A10D1F` 在 PCLK1=75.5MHz 下计算出 SCL ≈ 1.7MHz，远超传感器支持的 400kHz（标准 Fast Mode）。传感器能响应地址（ACK 地址字节），但多字节数据传输时失败。
+
+**计算方式**: STM32L4 I2C TIMINGR 寄存器：
+```
+[31:28] PRESC   = 定时器预分频
+[27:24] SCLDEL  = 数据建立时间
+[23:20] SDADEL  = 数据保持时间
+[15:8]  SCLH    = SCL 高电平周期
+[7:0]   SCLL    = SCL 低电平周期
+```
+SCL 频率公式：`f_SCL = PCLK1 / ((SCLH + SCLL) × (PRESC + 1))`
+
+**解决**: 在 `USER CODE BEGIN I2C3_Init 2` 中覆盖 Timing 值，降速到 ~100kHz：
+```c
+hi2c3.Init.Timing = 0x36905E5F;  // PRESC=3, SCLH=94, SCLL=95 → 100kHz
+```
+不用修改 CubeMX 生成的代码，在 USER CODE 区域覆盖即可。
+
+## 10. BMP280 地址选错（COMBO 模块）
+
+**现象**: BMP280 初始化失败 "read id failed"。I2C 扫描显示 BMP280 在 0x77，但代码传了 `BMP280_ADDRESS_ADO_LOW`（0x76）。
+
+**原因**: Combo 模块（AHT20+BMP280 一体）上 BMP280 的 ADO 引脚被拉高到 VCC，地址为 0x77。
+
+**解决**: 改用 `BMP280_ADDRESS_ADO_HIGH`：
+```c
+bmp280_basic_init(BMP280_INTERFACE_IIC, BMP280_ADDRESS_ADO_HIGH);
+```
+**教训**: 仅看 I2C 扫描结果比猜地址更可靠。怀疑地址问题时先扫总线。
+
+## 11. newlib-nano 浮点数格式化裁剪
+
+**现象**: `printf` 和 `snprintf` 中用 `%f` 输出空字符串（`temp=`），但 `%d` 正常。
+
+**原因**: 工具链使用 `--specs=nano.specs`（newlib-nano），为节省 Flash 默认不链接 `printf`/`snprintf` 的浮点数格式化代码。
+
+**两种解决方案**:
+
+| 方案 | 修改 | Flash 开销 | 优点 |
+|------|------|-----------|------|
+| 链接浮点支持 | CMake 加 `-u _printf_float` | +~10KB | 代码简洁，直接 `%.1f` |
+| 手动整数转换 | 传感器值 ×10，用 `%d.%d` 输出 | 无 | 不占额外 Flash |
+
+**选择**: 本项目 Flash 余量充足（256KB 用 ~57KB），但选择整数转换方案以避免将来无意引入浮点格式化导致 Flash 膨胀。
+
+**示例**:
+```c
+// ❌ 需要浮点支持
+snprintf(buf, 20, "T:%0.1fC", temp);
+
+// ✅ 无浮点依赖
+int t_x10 = (int)(temp * 10);
+snprintf(buf, 20, "T:%d.%dC", t_x10 / 10, abs(t_x10 % 10));
+```

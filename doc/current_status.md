@@ -2,7 +2,7 @@
 
 ## 硬件配置
 - **主控**: STM32L432KC (NUCLEO-L432KC), Cortex-M4F @ ~72MHz
-- **Flash**: 256KB — 已使用 ~57KB (22%)
+- **Flash**: 256KB — 已使用 ~57KB (22%) — 注：未启用 newlib-nano 浮点格式化，使用整数转换替代 `%f`
 - **RAM**: 48KB + 16KB(RAM2) — 已使用 ~3.5KB (7%)
 - **工具链**: arm-none-eabi-gcc 13.3.1 (STM32CubeIDE 捆绑)
 
@@ -31,17 +31,26 @@
 | 旋转编码器 | ⏳ 代码样例 | EXTI 中断, 未实机验证 |
 | PWM 电机驱动 | ⏳ 代码样例 | PWM 输出, 未实机验证 |
 
+## 浮点处理策略
+- newlib-nano 默认不链接 `printf`/`snprintf` 的 `%f` 支持
+- 传感器温度/气压值在读取后 `×10` 转为整数，用 `%d.%d` 格式化输出
+- 避免 `-u _printf_float` 链接选项，节省 ~10KB Flash
+- 示例：`25.3°C` → `temp_x10 = 253` → `"%d.%d"` → `"25.3"`
+
 ## 驱动架构
 - **LibDriver 模式**: 所有外设驱动（SSD1306、AHT20、BMP280）均使用 LibDriver
 - **LINK 机制**: 通过函数指针将 HAL 实现注入驱动 handle
 - **interface 模板**: 位于 `Drivers/Middlewares/libdriver_xxx/interface/`，填入 HAL I2C 调用
 
 ## I2C 总线 (hi2c3)
-| 设备 | 地址 (8-bit) | 类型 |
-|------|-------------|------|
-| SSD1306 OLED | 0x78 | 显示 |
-| AHT20 | 0x70 | 温湿度 |
-| BMP280 | 0xEC | 气压 |
+- **I2C 时钟**: ~100kHz (Standard Mode)，在 `USER CODE` 中覆盖 Timing=0x36905E5F
+- **原因**: 原始 CubeMX 配置 ~1.7MHz，AHT20/BMP280 combo 模块信号质量有限，降速后稳定
+
+| 设备 | 地址 (8-bit) | 地址 (7-bit) | 类型 |
+|------|-------------|-------------|------|
+| SSD1306 OLED | 0x78 | 0x3C | 显示 |
+| AHT20 | 0x70 | 0x38 | 温湿度 |
+| BMP280 | 0xEE | 0x77 | 气压 (ADO_HIGH) |
 
 ## OLED 页面布局
 
