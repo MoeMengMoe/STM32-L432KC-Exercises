@@ -7,3 +7,4 @@ Drivers/CMSIS
 .cache/
 Drivers/Middlewares/libdriver_aht20/doc
 Drivers/Middlewares/libdriver_bmp280/doc
+build

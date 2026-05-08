@@ -108,13 +108,16 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # 2. 递归扫描源文件（确保路径加引号，防止空格报错）
-file(GLOB_RECURSE LIBDRIVER_SSD1306_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
-file(GLOB_RECURSE LIBDRIVER_AHT20_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_aht20/*.c")
-file(GLOB_RECURSE LIBDRIVER_BMP280_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_bmp280/*.c")
+file(GLOB_RECURSE LIBDRIVER_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/libdriver_ssd1306/*.c")
 
 # 3. 将源文件添加到目标
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${LIBDRIVER_SRCS})
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal"
+)
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-        ${LIBDRIVER_SSD1306_SRCS}
-        ${LIBDRIVER_AHT20_SRCS}
-        ${LIBDRIVER_BMP280_SRCS}
+        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833.c"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/Drivers/Middlewares/drv8833_hal/drv8833_motor.c"
 )

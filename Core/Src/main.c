@@ -20,6 +20,7 @@
 #include "main.h"
 #include "i2c.h"
 #include "rtc.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -31,6 +32,7 @@
 #include "driver_bmp280_basic.h"
 #include "rtc_app.h"
 #include <string.h>
+#include"drv8833.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +44,7 @@
 /* USER CODE BEGIN PD */
 #define TIME_PAGE 0
 #define STATUS_PAGE 1
+#define COUNT_MID 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -115,7 +118,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       {
         rx_buf[rx_idx++] = rx_char; // 存储接收到的字符并递增索引
       }
-      
+
     }
     HAL_UART_Receive_IT(&huart1, &rx_char, 1);
     // RTC_DATA_SET_BY_STRING((char*)message);
@@ -219,6 +222,9 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C3_Init();
   MX_RTC_Init();
+  MX_TIM1_Init();
+  MX_TIM2_Init();
+  DRV8833_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
@@ -274,12 +280,35 @@ int main(void)
   {
     printf("bmp280: init success!\r\n");
   }
+
+
+
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+
+  uint8_t count =0;
+  uint8_t speed=0;
+  __HAL_TIM_SET_COUNTER(&htim2,COUNT_MID);
+
+
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  count=__HAL_TIM_GetCounter(&htim2);
+    if (count>60000)
+    {
+      count=0;
+      __HAL_TIM_SetCounter(&htim2, 0);
+    }
+    if (count>COUNT_MID*2)
+    {
+      count=COUNT_MID*2;
+      __HAL_TIM_SET_COUNTER(&htim2,count);
+    }
 
     RTC_DATA_GET(&time);
 
@@ -288,7 +317,19 @@ int main(void)
       ssd1306_basic_clear();
       page_switch_flag = 0;
     }
+    //处理编码器识别
+    if (count<COUNT_MID)
+    {
+      speed=(COUNT_MID-count)*100/COUNT_MID;
+      DRV8833_Backward(speed);
 
+    }else if (count>COUNT_MID)
+    {
+      speed=(count-COUNT_MID)*100/COUNT_MID;
+      DRV8833_Forward(speed);
+    }
+    HAL_Delay(100);
+//状态机逻辑
     switch (CUR_PAGE)
     {
     case TIME_PAGE:
