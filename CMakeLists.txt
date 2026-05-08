@@ -36,7 +36,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/rtc_app.h
         Core/Src/rtc_app.c
         Core/Inc/AHT20.h
-        Core/Src/AHT20.c)
+        Core/Src/AHT20.c
+        Core/Inc/drv8833.h
+        Core/Src/drv8833.c)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
