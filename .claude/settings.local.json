@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-Content *)",
+      "Bash(chmod +x msg_filter.sh)",
+      "Bash(git filter-branch *)",
+      "Bash(git remote *)"
+    ]
+  }
+}
