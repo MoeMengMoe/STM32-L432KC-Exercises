@@ -227,6 +227,11 @@ void SHOW_STATUS_PAGE(int aht20_temp_x10, uint8_t aht20_hum, int bmp280_press_hp
     dir = "REV";
   }
 
+  static uint8_t last_fan_mode = FAN_MODE_AUTO;
+  if (last_fan_mode != FAN_MODE) {
+    ssd1306_basic_string(0, 40, "                    ", 20, 1, SSD1306_FONT_12);
+    last_fan_mode = FAN_MODE;
+  }
   snprintf(buf, sizeof(buf), "Fan:%s %3u%% %s", dir, fan.speed_percent,MODE_MESSAGE[FAN_MODE]);
   ssd1306_basic_string(0, 40, buf, strlen(buf), 1, SSD1306_FONT_12);
   
