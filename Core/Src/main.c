@@ -63,20 +63,17 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// 开机乐谱：小星星
+// 开机乐谱：马里奥主题短句
 const BuzzerNote startup_melody[] = {
-    {NOTE_C4, 350}, {NOTE_C4, 350}, {NOTE_G4, 350}, {NOTE_G4, 350},
-    {NOTE_A4, 350}, {NOTE_A4, 350}, {NOTE_G4, 700},
-    {NOTE_F4, 350}, {NOTE_F4, 350}, {NOTE_E4, 350}, {NOTE_E4, 350},
-    {NOTE_D4, 350}, {NOTE_D4, 350}, {NOTE_C4, 700},
-    {NOTE_G4, 350}, {NOTE_G4, 350}, {NOTE_F4, 350}, {NOTE_F4, 350},
-    {NOTE_E4, 350}, {NOTE_E4, 350}, {NOTE_D4, 700},
-    {NOTE_G4, 350}, {NOTE_G4, 350}, {NOTE_F4, 350}, {NOTE_F4, 350},
-    {NOTE_E4, 350}, {NOTE_E4, 350}, {NOTE_D4, 700},
-    {NOTE_C4, 350}, {NOTE_C4, 350}, {NOTE_G4, 350}, {NOTE_G4, 350},
-    {NOTE_A4, 350}, {NOTE_A4, 350}, {NOTE_G4, 700},
-    {NOTE_F4, 350}, {NOTE_F4, 350}, {NOTE_E4, 350}, {NOTE_E4, 350},
-    {NOTE_D4, 350}, {NOTE_D4, 350}, {NOTE_C4, 700}
+    {NOTE_E5, 90},  {NOTE_E5, 90},  {NOTE_REST, 90}, {NOTE_E5, 90},
+    {NOTE_REST, 90}, {NOTE_C5, 90}, {NOTE_E5, 90},  {NOTE_REST, 90},
+    {NOTE_G5, 180}, {NOTE_REST, 180}, {NOTE_G4, 180}, {NOTE_REST, 140},
+
+    {NOTE_C5, 130}, {NOTE_REST, 80}, {NOTE_G4, 130}, {NOTE_REST, 80},
+    {NOTE_E4, 130}, {NOTE_REST, 80}, {NOTE_A4, 90},  {NOTE_B4, 90},
+    {NOTE_A4, 90},  {NOTE_G4, 120}, {NOTE_E5, 120}, {NOTE_G5, 120},
+    {NOTE_A5, 160}, {NOTE_F5, 90},  {NOTE_G5, 90},  {NOTE_REST, 80},
+    {NOTE_E5, 90},  {NOTE_C5, 90},  {NOTE_D5, 90},  {NOTE_B4, 160}
 };
 
 uint8_t message[20];
@@ -101,6 +98,7 @@ RTC_TIME_DATA time;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 static void I2C3_Scan(void);
+static void OLED_ShowStartupAnimation(void);
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -200,15 +198,14 @@ int _read(int file, char *ptr, int len)
 
 void SHOW_TIME_PAGE()
 {
-  /* 直接覆写，不清屏避免闪烁 */
-  /* 第1行: 日期 */
   char buf[24];
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02d", time.year, time.month, time.day);
-  ssd1306_basic_string(0, 0, buf, strlen(buf), 1, SSD1306_FONT_16);
 
-  /* 第2行: 时间 */
+  /* 时间使用 16 号字体居中显示，24 号字体宽度超出 128px 屏幕。 */
   snprintf(buf, sizeof(buf), "%02d:%02d:%02d", time.hour, time.minute, time.second);
-  ssd1306_basic_string(0, 20, buf, strlen(buf), 1, SSD1306_FONT_16);
+  ssd1306_basic_string(32, 10, buf, strlen(buf), 1, SSD1306_FONT_16);
+
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02d", time.year, time.month, time.day);
+  ssd1306_basic_string(31, 36, buf, strlen(buf), 1, SSD1306_FONT_12);
 }
 
 void SHOW_STATUS_PAGE(int aht20_temp_x10, uint8_t aht20_hum, int bmp280_press_hpa_x10, FanStatus fan)
@@ -248,6 +245,41 @@ void SHOW_STATUS_PAGE(int aht20_temp_x10, uint8_t aht20_hum, int bmp280_press_hp
   
 
   
+}
+
+static void OLED_ShowStartupAnimation(void)
+{
+  const uint8_t bar_left = 10;
+  const uint8_t bar_top = 44;
+  const uint8_t bar_right = 117;
+  const uint8_t bar_bottom = 54;
+  const uint8_t bar_width = bar_right - bar_left - 3;
+
+  ssd1306_basic_clear();
+  ssd1306_basic_string(14, 0, "STM32L432KC", 11, 1, SSD1306_FONT_16);
+  ssd1306_basic_string(24, 22, "Embedded Lab", 12, 1, SSD1306_FONT_12);
+
+  ssd1306_basic_rect(bar_left, bar_top, bar_right, bar_top, 1);
+  ssd1306_basic_rect(bar_left, bar_bottom, bar_right, bar_bottom, 1);
+  ssd1306_basic_rect(bar_left, bar_top, bar_left, bar_bottom, 1);
+  ssd1306_basic_rect(bar_right, bar_top, bar_right, bar_bottom, 1);
+
+  for (uint8_t frame = 0; frame <= 8; frame++)
+  {
+    uint8_t fill_right = bar_left + 2 + (uint8_t)((bar_width * frame) / 8);
+
+    if (frame > 0)
+    {
+      ssd1306_basic_rect(bar_left + 2, bar_top + 2, fill_right, bar_bottom - 2, 1);
+    }
+
+    HAL_Delay(80);
+  }
+
+  ssd1306_basic_rect(bar_left, bar_top, bar_right, bar_bottom, 0);
+  ssd1306_basic_string(49, 44, "READY", 5, 1, SSD1306_FONT_12);
+  HAL_Delay(250);
+  ssd1306_basic_clear();
 }
 
 
@@ -311,21 +343,11 @@ int main(void)
   else
   {
     printf("ssd1306: init success!\r\n");
-
-    ssd1306_basic_clear();
-
-    ssd1306_basic_string(0, 0, "STM32L432KC", 11, 1, SSD1306_FONT_16);
-    ssd1306_basic_string(0, 20, "LibDriver OK", 12, 1, SSD1306_FONT_12);
-
-    ssd1306_basic_rect(0, 40, 127, 60, 1);
-
-    HAL_Delay(1000);
-
-    ssd1306_basic_clear();
+    OLED_ShowStartupAnimation();
   }
 
   /* 扫描 I2C3 总线，查看哪些设备在线 */
-  I2C3_Scan();
+  // I2C3_Scan();
 
   /* 初始化AHT20温湿度传感器 */
   res = aht20_basic_init();
@@ -415,7 +437,7 @@ int main(void)
         int t_x10 = (int)(aht20_temp * 10);
         status_aht20_temp_x10 = t_x10;
         status_aht20_hum = aht20_hum;
-        printf("aht20: temp=%d.%d hum=%d\r\n", t_x10 / 10, (t_x10 < 0 ? -t_x10 : t_x10) % 10, aht20_hum);
+        // printf("aht20: temp=%d.%d hum=%d\r\n", t_x10 / 10, (t_x10 < 0 ? -t_x10 : t_x10) % 10, aht20_hum);
       }
 
       float bmp280_temp = 0.0f;
@@ -428,7 +450,7 @@ int main(void)
       {
         int p_hpa_x10 = (int)(bmp280_press / 10.0f);
         status_bmp280_press_hpa_x10 = p_hpa_x10;
-        printf("bmp280: press=%d.%d\r\n", p_hpa_x10 / 10, p_hpa_x10 % 10);
+        // printf("bmp280: press=%d.%d\r\n", p_hpa_x10 / 10, p_hpa_x10 % 10);
       }
       last_sensor_tick = now;
     }
