@@ -16,7 +16,7 @@
 | 串口调试 (115200) | USART1 | Done |
 | 按键页面切换 | PB5 EXTI | Done |
 | 呼吸灯 | PWM (feature/pwm-breathing-light) | WIP |
-| 旋转编码器 | TIM (feature/pwm-encoder) | WIP |
+| 旋转编码器 | TIM2 Encoder (PA0/PA1) | WIP |
 | 超声波测距 (HC-SR04) | TIM Input Capture (feature/timer-input-capture) | WIP |
 | 循迹传感器 | TIM2 ETR (feature/timer-etr) | WIP |
 
@@ -78,6 +78,8 @@ Press **KEY (PB5)** to toggle pages.
 - **Auto mode**: Fan turns on when temperature exceeds threshold (default 25C)
 - **Manual mode**: Control speed via encoder switch (ENC_KEY)
 - Toggle modes by pressing encoder switch on STATUS_PAGE
+- Rotary encoder A/B must use **PA0 (TIM2_CH1)** and **PA1 (TIM2_CH2)**.
+- **Do not use PA5 for the encoder**: PA5 was verified to stay static on this board setup, causing TIM2 to only bounce between adjacent counts.
 
 ## Project Structure
 

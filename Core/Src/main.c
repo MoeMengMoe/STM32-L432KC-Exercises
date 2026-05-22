@@ -106,7 +106,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
       if (HAL_GPIO_ReadPin(KEY_GPIO_Port, KEY_Pin) == GPIO_PIN_RESET)
       {
-        printf("key irq (debounced)\r\n");
+        printf("key pressed\r\n");
         HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
         CUR_PAGE = (CUR_PAGE + 1) % 2;
         page_switch_flag = 1;
@@ -368,6 +368,8 @@ int main(void)
 
     if ((now - last_fan_tick) >= FAN_CONTROL_PERIOD_MS)
     {
+      // FAN_APP_DebugEncoder();
+
       if (FAN_MODE == FAN_MODE_AUTO)
       {
         FAN_Auto_Mode(status_aht20_temp_x10, temp_thr);

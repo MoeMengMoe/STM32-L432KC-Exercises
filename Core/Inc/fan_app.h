@@ -19,6 +19,7 @@ typedef struct {
 } FanStatus;
 
 void FAN_APP_Init(void);
+void FAN_APP_DebugEncoder(void);
 void FAN_APP_Update(void);
 FanStatus FAN_APP_GetStatus(void);
 void FAN_Auto_Mode(int tempx10,int temp_thr);

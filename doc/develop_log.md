@@ -67,3 +67,9 @@
 - **发现**：FAN_APP_Update 每轮覆盖电机控制，覆盖 AUTO 模式输出 → 待修复
 - **发现**：TIM2 仍为编码器模式，未切换为 PWM 输入捕获 → 待修复
 - TODO：TIM2 改 PWM 输入捕获、写入 HAL_TIM_IC_CaptureCallback、增加 FAN_PAGE、I2C Timing 覆盖
+
+## 2026-05-22 — 修复旋转编码器引脚映射
+- TIM2 编码器模式改为双通道 `TIM_ENCODERMODE_TI12`
+- 编码器 A/CLK 固定使用 PA0(TIM2_CH1)，B/DT 固定使用 PA1(TIM2_CH2)
+- **硬件约束**：不可使用 PA5 作为编码器输入；实测 PA5 电平不随旋钮变化，TIM2 计数会只在相邻值之间抖动
+- 保留串口诊断输出，打印 TIM2 计数与 PA0/PA1/PA5 电平，便于后续接线排查

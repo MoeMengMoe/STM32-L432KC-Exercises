@@ -40,7 +40,6 @@ void BUZZER_PlayMelody(const BuzzerNote *melody, uint16_t length) {
     currentNoteIdx = 0;
     noteStartTime = HAL_GetTick();
     isPlaying = 1;
-    
     BUZZER_SetFrequency(pCurrentMelody[0].frequency);
 }
 
