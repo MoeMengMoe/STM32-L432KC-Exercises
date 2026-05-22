@@ -63,12 +63,20 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// 示例乐谱：卡农 (简短版)
-const BuzzerNote canon_in_d[] = {
-    {NOTE_D4, 500}, {NOTE_A3, 500}, {NOTE_B3, 500}, {NOTE_FS3, 500},
-    {NOTE_G3, 500}, {NOTE_D3, 500}, {NOTE_G3, 500}, {NOTE_A3, 500},
-    {NOTE_D5, 500}, {NOTE_CS5, 500}, {NOTE_B4, 500}, {NOTE_A4, 500},
-    {NOTE_G4, 500}, {NOTE_FS4, 500}, {NOTE_G4, 500}, {NOTE_A4, 500}
+// 开机乐谱：小星星
+const BuzzerNote startup_melody[] = {
+    {NOTE_C4, 350}, {NOTE_C4, 350}, {NOTE_G4, 350}, {NOTE_G4, 350},
+    {NOTE_A4, 350}, {NOTE_A4, 350}, {NOTE_G4, 700},
+    {NOTE_F4, 350}, {NOTE_F4, 350}, {NOTE_E4, 350}, {NOTE_E4, 350},
+    {NOTE_D4, 350}, {NOTE_D4, 350}, {NOTE_C4, 700},
+    {NOTE_G4, 350}, {NOTE_G4, 350}, {NOTE_F4, 350}, {NOTE_F4, 350},
+    {NOTE_E4, 350}, {NOTE_E4, 350}, {NOTE_D4, 700},
+    {NOTE_G4, 350}, {NOTE_G4, 350}, {NOTE_F4, 350}, {NOTE_F4, 350},
+    {NOTE_E4, 350}, {NOTE_E4, 350}, {NOTE_D4, 700},
+    {NOTE_C4, 350}, {NOTE_C4, 350}, {NOTE_G4, 350}, {NOTE_G4, 350},
+    {NOTE_A4, 350}, {NOTE_A4, 350}, {NOTE_G4, 700},
+    {NOTE_F4, 350}, {NOTE_F4, 350}, {NOTE_E4, 350}, {NOTE_E4, 350},
+    {NOTE_D4, 350}, {NOTE_D4, 350}, {NOTE_C4, 700}
 };
 
 uint8_t message[20];
@@ -348,7 +356,7 @@ int main(void)
   /* 初始化蜂鸣器并播放开机音乐 */
 
   BUZZER_Init(&htim15, TIM_CHANNEL_1);
-  BUZZER_PlayMelody(canon_in_d, sizeof(canon_in_d) / sizeof(BuzzerNote));
+  BUZZER_PlayMelody(startup_melody, sizeof(startup_melody) / sizeof(BuzzerNote));
 
   uint32_t last_fan_tick = 0;
   uint32_t last_display_tick = 0;
